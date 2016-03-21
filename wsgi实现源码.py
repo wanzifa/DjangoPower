@@ -214,6 +214,8 @@ class BaseHandler(object):
 
             # If the response supports deferred rendering, apply template
             # response middleware and then render the response
+            # 如果response需要渲染页面
+            # 那么利用template中间件去给它一个渲染的处理
             if hasattr(response, 'render') and callable(response.render):
                 for middleware_method in self._template_response_middleware:
                     response = middleware_method(request, response)
@@ -307,3 +309,79 @@ class BaseHandler(object):
             response = response.render()
 
         return response
+
+"""
+下面介绍一下WSGIRequest对象
+"""
+
+class WSGIRequest(http.HttpRequest):
+    def __init__(self, environ):
+        #从环境参数中获取django app的名字（包的名字）
+        script_name = get_script_name(environ)
+        # 从环境参数中获取路径信息
+        path_info = get_path_info(environ)
+        # 如果没有路径信息 那么就在包名的后面加斜杠来作为url
+        if not path_info:
+            # Sometimes PATH_INFO exists, but is empty (e.g. accessing
+            # the SCRIPT_NAME URL without a trailing slash). We really need to
+            # operate as if they'd requested '/'. Not amazingly nice to force
+            # the path like this, but should be harmless.
+            path_info = '/'
+        self.environ = environ
+        self.path_info = path_info
+        # be careful to only replace the first slash in the path because of
+        # http://test/something and http://test//something being different as
+        # stated in http://www.ietf.org/rfc/rfc2396.txt
+        #设定url
+        self.path = '%s/%s' % (script_name.rstrip('/'),
+                               path_info.replace('/', '', 1))
+        self.META = environ
+        self.META['PATH_INFO'] = path_info
+        self.META['SCRIPT_NAME'] = script_name
+        self.method = environ['REQUEST_METHOD'].upper()
+        self.content_type, self.content_params = cgi.parse_header(environ.get('CONTENT_TYPE', ''))
+        if 'charset' in self.content_params:
+            try:
+                codecs.lookup(self.content_params['charset'])
+            except LookupError:
+                pass
+            else:
+                self.encoding = self.content_params['charset']
+        self._post_parse_error = False
+        try:
+            content_length = int(environ.get('CONTENT_LENGTH'))
+        except (ValueError, TypeError):
+            content_length = 0
+        self._stream = LimitedStream(self.environ['wsgi.input'], content_length)
+        self._read_started = False
+        self.resolver_match = None
+
+    def _get_scheme(self):
+        return self.environ.get('wsgi.url_scheme')
+
+    @cached_property
+    def GET(self):
+        # The WSGI spec says 'QUERY_STRING' may be absent.
+        raw_query_string = get_bytes_from_wsgi(self.environ, 'QUERY_STRING', '')
+        return http.QueryDict(raw_query_string, encoding=self._encoding)
+
+    def _get_post(self):
+        if not hasattr(self, '_post'):
+            self._load_post_and_files()
+        return self._post
+
+    def _set_post(self, post):
+        self._post = post
+
+    @cached_property
+    def COOKIES(self):
+        raw_cookie = get_str_from_wsgi(self.environ, 'HTTP_COOKIE', '')
+        return http.parse_cookie(raw_cookie)
+
+    def _get_files(self):
+        if not hasattr(self, '_files'):
+            self._load_post_and_files()
+        return self._files
+
+    POST = property(_get_post, _set_post)
+    FILES = property(_get_files)
