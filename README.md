@@ -13,4 +13,5 @@
 获取了response，还没完，还要调用响应中间件，响应中间件用于执行了view函数之后，对返回中的response进行一些操作</br>
 响应中间件是各种中间件的process_response函数的集合，我们照样是用for语句去循环调用它，不同的是，调用顺序是自下网上，与请求中间件的调用顺序相反，哈哈</br>
 一图胜千言</br>
+
 ![middleware机制](http://7xl4oh.com1.z0.glb.clouddn.com/django-middleware.jpg)
