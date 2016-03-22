@@ -130,8 +130,9 @@ class BaseHandler(object):
                         logger.debug('MiddlewareNotUsed: %r', middleware_path)
                 continue
             
-            # 就WSGI而言 我们需要关注的就是这个request_middleware
+            # 关注一下request_middleware
             # 看到了吧 它其实是所有中间件的process_request函数集合
+            # 我们可以看到所有的所谓中间件函数，都是预处理或后处理函数的集合
             # 关于process_request函数 我们会在README文件中进一步解释
             if hasattr(mw_instance, 'process_request'):
                 request_middleware.append(mw_instance.process_request)
