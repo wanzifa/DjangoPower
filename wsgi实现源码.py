@@ -179,14 +179,17 @@ class BaseHandler(object):
                     break
             
             # 啥？上面遍历完没有返回response？
-            # 那就去_view_middleware中找啦
+            # 那就继续往下走 进入下一个中间件
             if response is None:
                 if hasattr(request, 'urlconf'):
                     # Reset url resolver with a custom URLconf.
                     urlconf = request.urlconf
                     set_urlconf(urlconf)
                     resolver = get_resolver(urlconf)
-
+                
+                # 调用ResolverMatch对象中的resolve方法
+                # 返回ResolverMatch对象
+                # 获取响应函数
                 resolver_match = resolver.resolve(request.path_info)
                 callback, callback_args, callback_kwargs = resolver_match
                 request.resolver_match = resolver_match
